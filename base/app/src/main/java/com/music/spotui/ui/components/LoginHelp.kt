@@ -85,6 +85,16 @@ fun LoginHelpDialog(onClose: () -> Unit) {
             Column {
                 Text(stringResource(R.string.login_help_detail), color = AppText.copy(alpha = 0.7f))
                 Spacer(Modifier.height(8.dp))
+                TextButton(onClick = {
+                    val clip = (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager)
+                        ?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty()
+                    val link = Regex("""https://(accounts|challenge)\.spotify\.com/\S+""").find(clip)?.value ?: clip
+                    if (MyspotiRuntime.host.openLoginLink(link)) onClose()
+                    else android.widget.Toast.makeText(ctx, ctx.getString(R.string.login_paste_none), android.widget.Toast.LENGTH_LONG).show()
+                }) {
+                    Text(stringResource(R.string.login_paste_link), color = AppAccent)
+                }
+                Spacer(Modifier.height(4.dp))
                 TextButton(onClick = { browser = true }) { Text("Sign in with browser", color = AppAccent) }
             }
         },

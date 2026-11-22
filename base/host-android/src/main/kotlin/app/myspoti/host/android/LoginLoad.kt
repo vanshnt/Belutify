@@ -51,6 +51,19 @@ enum class LoginLoad {
             else -> Blank.FAIL
         }
 
+        /**
+         * A sign-in link Spotify sent by e-mail (or any page of its sign-in), safe to open in the
+         * app's own sign-in page: https on accounts.spotify.com or challenge.spotify.com only.
+         * Tapped in a mail app it otherwise opened the phone's browser, which signed in there, and
+         * the app never saw the session (reported: "can't log in with my e-mail").
+         */
+        fun isSignInLink(url: String?): Boolean {
+            val uri = runCatching { java.net.URI((url ?: return false).trim()) }.getOrNull() ?: return false
+            if (uri.scheme?.lowercase() != "https") return false
+            val host = uri.host?.lowercase() ?: return false
+            return host == "accounts.spotify.com" || host == "challenge.spotify.com"
+        }
+
         /** Spotify's own account pages: the one whose failure is the sign-in's failure. */
         fun isSpotifyAccounts(url: String?): Boolean = hostOf(url) == "accounts.spotify.com"
 

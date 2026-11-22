@@ -390,6 +390,23 @@ class MainActivity : AppCompatActivity() {
         MyspotiRuntime.host.openLogin()
     }
 
+    /**
+     * A sign-in link from Spotify's e-mail ([app.myspoti.host.android.LoginLoad.isSignInLink]):
+     * Spotify's page in front, full screen, on that link (as [showLogin] does on the login page).
+     * Called from a link opened with the app and from the sign-in Help's "Paste sign-in link".
+     */
+    private var lastLoginLink: Pair<String, Long>? = null
+
+    fun showLoginLink(link: String): Boolean {
+        if (!app.myspoti.host.android.LoginLoad.isSignInLink(link.trim())) return false
+        val now = android.os.SystemClock.elapsedRealtime()
+        lastLoginLink?.let { (l, at) -> if (l == link && now - at < 5_000) return true }
+        lastLoginLink = link to now
+        showingLogin = true
+        MyspotiRuntime.host.attach(root, visible = true)
+        return MyspotiRuntime.host.openLoginLink(link)
+    }
+
     private fun hideLogin() {
         showingLogin = false
         loginProblem = false
@@ -628,6 +645,8 @@ class MainActivity : AppCompatActivity() {
         when (intent.action) {
             Intent.ACTION_VIEW -> {
                 val link = intent.data?.toString() ?: return
+                // A sign-in link from Spotify's e-mail: signed in here, not in the phone's browser.
+                if (showLoginLink(link)) return
                 // A collaborative-playlist invitation (…?pt=) or a spotify.link short link: kept / resolved there.
                 if (com.music.spotui.data.api.InviteLinks.handle(link)) return
                 val uri = spotifyUri(link) ?: return

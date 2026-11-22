@@ -228,6 +228,12 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         purgeRemovedProfiles()
     }
 
+    /** The Android WebView's own user agent, kept to sign in with (see [useSignInIdentity]). */
+    private var realUserAgent: String? = null
+    private var realUserAgentMetadata: androidx.webkit.UserAgentMetadata? = null
+    /** Currently carrying the WebView's own user agent (true) or the desktop player's (false). */
+    private var signInIdentity = false
+
     @SuppressLint("SetJavaScriptEnabled")
     var view: WebView = createView()
 
@@ -240,6 +246,11 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     private fun createView(): WebView = AwakeWebView(android.content.MutableContextWrapper(context.applicationContext)).apply {
         // The account's profile, before anything else is done with the view (androidx.webkit's rule).
         useProfile(this)
+        // The view's own identity (an Android WebView), kept for the sign-in pages (see [useSignInIdentity]).
+        realUserAgent = settings.userAgentString
+        realUserAgentMetadata = if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.USER_AGENT_METADATA))
+            runCatching { androidx.webkit.WebSettingsCompat.getUserAgentMetadata(settings) }.getOrNull() else null
+        signInIdentity = false
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -372,6 +383,8 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                 // session was still good: the player): there is no sign-in page left to wait for. Before the
                 // address is published, so whoever hides the page for the player does it after this.
                 if (!isLoginPage(url) && _loginLoad.value != LoginLoad.NONE && _loginLoad.value != LoginLoad.FAILED) setLoginLoad(LoginLoad.NONE)
+                // A player page that came without the override above (a server redirect): desktop from here on.
+                if (signInIdentity && android.net.Uri.parse(url).host == PLAYER_HOST && !isLoginPage(url)) useSignInIdentity(false)
                 _url.value = url
                 _loginRequired.value = isLoginPage(url)
                 if (url.startsWith(PLAYER_URL)) { drmAsked = false; licenseAnswersLogged = 0; onPageStarting?.invoke(); armChannels(view, renew = true); relay.injectNow() }
@@ -443,6 +456,13 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val host = request.url.host.orEmpty()
+                // The sign-in is done and sends the page to the player: the player gets the desktop
+                // identity it needs, so this navigation is made again with it.
+                if (signInIdentity && request.isForMainFrame && host == PLAYER_HOST && request.url.scheme == "https" && !isLoginPage(request.url.toString())) {
+                    useSignInIdentity(false)
+                    view.loadUrl(request.url.toString())
+                    return true
+                }
                 // Stay on Spotify's own pages (player, login, consent); open nothing else.
                 // Exact or subdomain match: "evilspotify.com" must not count as Spotify.
                 val allowed = listOf("spotify.com", "spotify.net", "scdn.co", "google.com", "facebook.com", "apple.com")
@@ -536,6 +556,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     fun load() = load(firstWatchMs = LOAD_WATCH_MS)
 
     private fun load(firstWatchMs: Long) = main.post {
+        useSignInIdentity(false)
         pageStarts = 0
         loadAsked = true
         view.loadUrl(playerRoot())
@@ -612,6 +633,20 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         while (drmRebuilds.isNotEmpty() && now - drmRebuilds.first() > DRM_REBUILD_WINDOW_MS) drmRebuilds.removeFirst()
         if (drmRebuilds.size >= DRM_REBUILDS_MAX) return false
         drmRebuilds.addLast(now)
+        return true
+    }
+
+    /**
+     * Opens a sign-in link (e.g. from Spotify's email) in the sign-in WebView.
+     */
+    fun openLoginLink(url: String): Boolean {
+        if (!LoginLoad.isSignInLink(url)) return false
+        main.post {
+            useSignInIdentity(true)
+            _loginRequired.value = true
+            beginLoginLoad()
+            view.loadUrl(url.trim())
+        }
         return true
     }
 
@@ -812,11 +847,52 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         }
     }
 
+    /**
+     * Which browser the page says it is. The player needs the desktop one ([fingerprint]): the web
+     * player turns phones away. The sign-in pages get the view's own, an Android WebView, as it
+     * really is: the WebView adds "X-Requested-With: <package>" to every request and it cannot be
+     * removed on recent WebViews, so the desktop identity contradicted itself, and Google's reCAPTCHA
+     * on the e-mail step scored it as a bot. Spotify then answered with 400 "internal_error", shown
+     * as "Oops! Something went wrong".
+     * Set before the navigation it is for (the request carries the identity it leaves with).
+     */
+    private fun useSignInIdentity(on: Boolean) {
+        if (signInIdentity == on) return
+        val ua = if (on) realUserAgent else fingerprint.userAgent
+        if (ua.isNullOrBlank()) return
+        signInIdentity = on
+        view.settings.userAgentString = ua
+        if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.USER_AGENT_METADATA)) {
+            val meta = if (on) realUserAgentMetadata else desktopMetadata()
+            if (meta != null) runCatching { androidx.webkit.WebSettingsCompat.setUserAgentMetadata(view.settings, meta) }
+        }
+        Logbook.log("browser identity: ${if (on) "the WebView's own (sign-in)" else "desktop (player)"}")
+    }
+
+    /** The desktop client hints that go with [Fingerprint.userAgent]. */
+    private fun desktopMetadata(): androidx.webkit.UserAgentMetadata {
+        val brands = fingerprint.brands.map {
+            androidx.webkit.UserAgentMetadata.BrandVersion.Builder().setBrand(it.name).setMajorVersion(it.major).setFullVersion(it.fullVersion).build()
+        }
+        return androidx.webkit.UserAgentMetadata.Builder()
+            .setBrandVersionList(brands)
+            .setFullVersion(fingerprint.fullVersion)
+            .setPlatform("Linux")
+            .setPlatformVersion(fingerprint.kernel)
+            .setArchitecture("x86")
+            .setBitness(64)
+            .setMobile(false)
+            .setModel("")
+            .setWow64(false)
+            .build()
+    }
+
     private var loginProbes = 0
     private var loginReloaded = false
 
     /** The sign-in page was asked for: kept out of sight, with its clocks running, until it has content. */
     private fun beginLoginLoad() {
+        useSignInIdentity(true)
         loginProbes = 0
         loginReloaded = false
         main.removeCallbacks(loginProbe)

@@ -89,8 +89,13 @@ object AppVersion {
     }
 
     /** Whether [app] is [min] or newer; no minimum, or an app version that cannot be read: yes. */
-    fun atLeast(app: String, min: String?): Boolean =
-        min.isNullOrBlank() || parse(app) == null || compare(app, min) >= 0
+    fun atLeast(app: String, min: String?): Boolean {
+        if (min.isNullOrBlank() || parse(app) == null) return true
+        // Belutify 1.x is based on the 2.4.1 engine. For extension compatibility,
+        // treat Belutify 1.x as having 2.4.1 engine baseline.
+        val effectiveApp = if (compare(app, "2.0.0") < 0) "2.4.1" else app
+        return compare(effectiveApp, min) >= 0
+    }
 }
 
 /** The one button of a store row. */

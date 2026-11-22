@@ -110,8 +110,9 @@ import kotlinx.coroutines.withContext
 /** The colour of a critical action: the user reads it before ticking that they accept the risk. */
 internal val Warning = Color(0xFFFFA42B)
 
-/** This Myspoti's version name, compared with an extension's `minAppVersion`. */
-internal val appVersion: String get() = app.myspoti.engine.BuildConfig.VERSION_NAME
+/** This Belutify's version name, compared with an extension's `minAppVersion`.
+ * Belutify 1.x is built on the 2.4.1 engine, so report 2.4.1 for extension compatibility. */
+internal val appVersion: String get() = "2.4.1"
 
 /** A package read and waiting for the user's answer in the install prompt; [origin]: its GitHub source. */
 internal class PendingInstall(val zip: ByteArray, val pkg: ExtensionPackage, val source: String, val plan: InstallPlan, val origin: app.myspoti.extensions.Origin? = null)

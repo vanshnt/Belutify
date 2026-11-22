@@ -1,7 +1,8 @@
 # Belutify
 
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
-[![Maintained by vanshnt](https://img.shields.io/badge/Maintained%20by-vanshnt-green.svg)](https://github.com/vanshnt)
+[![Latest Release](https://img.shields.io/github/v/release/vanshnt/Belutify?color=blue)](https://github.com/vanshnt/Belutify/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/vanshnt/Belutify/total?color=green)](https://github.com/vanshnt/Belutify/releases)
+[![Platform](https://img.shields.io/badge/Platform-Android-brightgreen)](https://github.com/vanshnt/Belutify)
 
 **Belutify** is an ad-free Android music client for Spotify, maintained by **[vanshnt](https://github.com/vanshnt)**.
 Revived and continued from the open-source **Myspoti** project (originally by kota-zo & contributors).

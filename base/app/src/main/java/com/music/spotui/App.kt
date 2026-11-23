@@ -50,7 +50,6 @@ fun App() {
     LaunchedEffect(Unit) { com.music.spotui.ui.components.DownloadAsk.openRoute.collect { r -> runCatching { navController.navigateSingleTop(r) } } }
 
     UpdatePrompt()
-    SupportPrompt()
     // The playlists at the top of the library, fetched ahead on Wi-Fi (see PagePrefetch).
     LaunchedEffect(Unit) { com.music.spotui.data.api.PagePrefetch.start() }
 
@@ -180,112 +179,7 @@ private val updateCardOpen = mutableStateOf(false)
  */
 internal val updateRelease = mutableStateOf<com.music.spotui.data.api.UpdateChecker.Release?>(null)
 
-/**
- * The Orpheon release the "Myspoti is becoming Orpheon" card shows, once no Myspoti update is on
- * screen. The automatic check fills it; so does the Orpheon row in Settings > About.
- */
-internal val orpheonRelease = mutableStateOf<com.music.spotui.data.api.UpdateChecker.Release?>(null)
 
-/**
- * The donation reminder (see SupportReminder): a card a few seconds after launch, only
- * when due, signed in, and no update card is open. "No thanks" closes it for 2 weeks.
- */
-@Composable
-private fun SupportPrompt() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var show by androidx.compose.runtime.remember { mutableStateOf(false) }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(12_000)
-        val signedIn = context.getSharedPreferences("myspoti_prefs", android.content.Context.MODE_PRIVATE).getBoolean("LoggedIn", false)
-        show = signedIn && !updateCardOpen.value && com.music.spotui.data.api.SupportReminder.isDue(context)
-    }
-    if (!show) return
-    val close = { com.music.spotui.data.api.SupportReminder.shown(context); show = false }
-    SupportDialog(
-        supporter = com.music.spotui.data.api.SupportReminder.level != com.music.spotui.data.api.SupportReminder.Level.NONE,
-        onSupport = { close(); com.music.spotui.data.api.SupportReminder.open(context) },
-        onSponsor = { close(); com.music.spotui.data.api.SupportReminder.openSponsors(context) },
-        onDecline = close,
-        onSupported = { level -> com.music.spotui.data.api.SupportReminder.setLevel(context, level); close() },
-    )
-}
-
-/**
- * The reminder card: a request, or a thank-you for someone who already gave. "I've
- * supported" (on trust) asks once or monthly, and unlocks the supporter thank-yous.
- */
-@Composable
-private fun SupportDialog(supporter: Boolean, onSupport: () -> Unit, onSponsor: () -> Unit, onDecline: () -> Unit, onSupported: (com.music.spotui.data.api.SupportReminder.Level) -> Unit) {
-    // The owner's reminder: no extension draws, listens or acts over it.
-    com.music.spotui.extensions.ProtectedSurfaceEffect(app.myspoti.extensions.ProtectedSurface.SUPPORT)
-    var choosing by androidx.compose.runtime.remember { mutableStateOf(false) }
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDecline) {
-        androidx.compose.foundation.layout.Column(
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                .background(tone(0xFF242424))
-                .padding(horizontal = 24.dp, vertical = 28.dp),
-        ) {
-            androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(app.myspoti.engine.R.drawable.ic_launcher_foreground),
-                contentDescription = null,
-                modifier = Modifier.size(72.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
-                    .background(tone(0xFF181818)),
-            )
-            androidx.compose.material3.Text(
-                androidx.compose.ui.res.stringResource(if (supporter) app.myspoti.engine.R.string.supporter_thanks_title else app.myspoti.engine.R.string.support_title),
-                color = AppText, fontFamily = com.music.spotui.ui.theme.AppSans,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 20.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.padding(top = 18.dp),
-            )
-            androidx.compose.material3.Text(
-                androidx.compose.ui.res.stringResource(if (supporter) app.myspoti.engine.R.string.supporter_thanks_body else app.myspoti.engine.R.string.support_body),
-                color = AppText.copy(alpha = 0.8f),
-                fontFamily = com.music.spotui.ui.theme.AppSans, fontSize = 14.sp, lineHeight = 20.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.padding(top = 12.dp),
-            )
-            androidx.compose.foundation.layout.Box(
-                contentAlignment = androidx.compose.ui.Alignment.Center,
-                modifier = Modifier
-                    .padding(top = 24.dp)
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .pressable(0.96f, onClick = onSupport)
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
-                    .background(com.music.spotui.ui.theme.AppAccent),
-            ) {
-                androidx.compose.material3.Text(
-                    androidx.compose.ui.res.stringResource(if (supporter) app.myspoti.engine.R.string.support_again else app.myspoti.engine.R.string.support_action),
-                    color = androidx.compose.ui.graphics.Color.Black, fontFamily = com.music.spotui.ui.theme.AppSans,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 16.sp,
-                )
-            }
-            com.music.spotui.ui.components.GitHubSponsorButton(Modifier.padding(top = 10.dp), onClick = onSponsor)
-            androidx.compose.material3.Text(
-                androidx.compose.ui.res.stringResource(app.myspoti.engine.R.string.support_decline),
-                color = AppText, fontFamily = com.music.spotui.ui.theme.AppSans,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 15.sp,
-                modifier = Modifier.padding(top = 8.dp).pressable(0.96f, onClick = onDecline).padding(horizontal = 24.dp, vertical = 12.dp),
-            )
-            if (!supporter && com.music.spotui.data.api.SupportReminder.PERKS_ENABLED) {
-                if (choosing) androidx.compose.foundation.layout.Column(
-                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(top = 8.dp),
-                ) { com.music.spotui.ui.components.SupportChoice(onChosen = onSupported) }
-                else androidx.compose.material3.Text(
-                    androidx.compose.ui.res.stringResource(app.myspoti.engine.R.string.supporter_i_supported),
-                    color = AppText.copy(alpha = 0.6f), fontFamily = com.music.spotui.ui.theme.AppSans,
-                    fontSize = 13.sp,
-                    modifier = Modifier.pressable(0.96f) { choosing = true }.padding(horizontal = 24.dp, vertical = 8.dp),
-                )
-            }
-        }
-    }
-}
 
 /**
  * "New version" dialog: checked at launch and on every return to the app (off the UI thread), shown as soon as the answer is
@@ -306,17 +200,13 @@ private fun UpdatePrompt() {
                     // The request runs on the IO dispatcher, nothing waits for it.
                     val update = com.music.spotui.data.api.UpdateChecker.check(context)
                     if (update != null) release = update
-                    // Myspoti up to date: Orpheon, unless put off with "Later" less than a day ago.
-                    else com.music.spotui.data.api.UpdateChecker.orpheon(context)?.let { orpheonRelease.value = it }
                 }
                 kotlinx.coroutines.delay(com.music.spotui.data.api.UpdateChecker.PERIODIC_MS)
             }
         }
     }
-    val orpheon = orpheonRelease.value
-    updateCardOpen.value = release != null || orpheon != null
-    val r = release
-    if (r == null) { if (orpheon != null) OrpheonPrompt(orpheon); return }
+    updateCardOpen.value = release != null
+    val r = release ?: return
     com.music.spotui.extensions.ProtectedSurfaceEffect(app.myspoti.extensions.ProtectedSurface.UPDATE)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val updater = com.music.spotui.data.api.AppUpdater
@@ -346,8 +236,9 @@ private fun UpdatePrompt() {
     val busy = state is com.music.spotui.data.api.AppUpdater.State.Downloading || state == com.music.spotui.data.api.AppUpdater.State.Installing
     UpdateDialog(
         title = androidx.compose.ui.res.stringResource(app.myspoti.engine.R.string.main_update_available),
-        subtitle = "Myspoti ${r.version}",
+        subtitle = "Belutify ${r.version}",
         notes = r.notes,
+        footnote = androidx.compose.ui.res.stringResource(app.myspoti.engine.R.string.update_optional_note),
         status = status,
         progress = (state as? com.music.spotui.data.api.AppUpdater.State.Downloading)?.progress,
         button = res.getString(when (state) {
@@ -373,88 +264,16 @@ private fun UpdatePrompt() {
     )
 }
 
-/**
- * "Myspoti is becoming Orpheon": the newest Orpheon release of this build's channel, installed as
- * a new app next to Myspoti (nothing is uninstalled), or opened once it is there. "Later" puts it
- * off for a day ([com.music.spotui.data.api.UpdateChecker.ORPHEON_LATER_MS]); Settings > About
- * offers it again.
- */
-@Composable
-private fun OrpheonPrompt(offer: com.music.spotui.data.api.UpdateChecker.Release) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    com.music.spotui.extensions.ProtectedSurfaceEffect(app.myspoti.extensions.ProtectedSurface.UPDATE)
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val updater = com.music.spotui.data.api.AppUpdater
-    val state by updater.state.collectAsState()
-    val pkg = com.music.spotui.data.api.UpdateChecker.orpheonPackageOf(offer)
-    val start = { scope.launch { updater.update(context, offer, pkg) }; Unit }
-    // Installed by this card or by hand meanwhile: asked again after each install and each return.
-    var resumes by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    val installed = androidx.compose.runtime.remember(state, resumes) { updater.isInstalled(context, pkg) }
-    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    androidx.compose.runtime.DisposableEffect(lifecycle) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                resumes++
-                // Back from the "Install unknown apps" page with the switch on: carry on by itself.
-                if (updater.state.value == com.music.spotui.data.api.AppUpdater.State.NeedsPermission &&
-                    updater.canInstall(context)) start()
-            }
-        }
-        lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer) }
-    }
-    val later = { updater.reset(); com.music.spotui.data.api.UpdateChecker.orpheonLater(context); orpheonRelease.value = null }
-    val res = context.resources
-    val status = when (val s = state) {
-        is com.music.spotui.data.api.AppUpdater.State.Downloading ->
-            res.getString(app.myspoti.engine.R.string.update_downloading, (s.progress.coerceAtLeast(0f) * 100).toInt())
-        com.music.spotui.data.api.AppUpdater.State.Installing -> res.getString(app.myspoti.engine.R.string.update_installing)
-        com.music.spotui.data.api.AppUpdater.State.NeedsPermission -> res.getString(app.myspoti.engine.R.string.orpheon_needs_permission)
-        is com.music.spotui.data.api.AppUpdater.State.Failed -> res.getString(app.myspoti.engine.R.string.orpheon_failed, s.message)
-        com.music.spotui.data.api.AppUpdater.State.Idle -> null
-    }
-    val busy = state is com.music.spotui.data.api.AppUpdater.State.Downloading || state == com.music.spotui.data.api.AppUpdater.State.Installing
-    UpdateDialog(
-        title = androidx.compose.ui.res.stringResource(app.myspoti.engine.R.string.orpheon_title),
-        subtitle = "Orpheon ${offer.version}",
-        notes = offer.notes,
-        footnote = androidx.compose.ui.res.stringResource(app.myspoti.engine.R.string.orpheon_keep),
-        status = status.takeUnless { installed && !busy },
-        progress = (state as? com.music.spotui.data.api.AppUpdater.State.Downloading)?.progress,
-        button = res.getString(orpheonButton(installed && !busy, state)),
-        onUpdate = {
-            when {
-                busy -> Unit
-                // Opened: the card comes back a day later at the soonest, like "Later".
-                installed -> { later(); updater.open(context, pkg) }
-                state == com.music.spotui.data.api.AppUpdater.State.NeedsPermission && !updater.canInstall(context) ->
-                    updater.openInstallSettings(context)
-                else -> start()
-            }
-        },
-        onLater = { if (!busy) later() },
-    )
-}
-
-/** The Orpheon card's button: open it once installed, else install it (or the install's next step). */
-internal fun orpheonButton(installed: Boolean, state: com.music.spotui.data.api.AppUpdater.State): Int = when {
-    installed -> app.myspoti.engine.R.string.orpheon_open
-    state == com.music.spotui.data.api.AppUpdater.State.NeedsPermission -> app.myspoti.engine.R.string.update_allow
-    state is com.music.spotui.data.api.AppUpdater.State.Failed -> app.myspoti.engine.R.string.update_retry
-    else -> app.myspoti.engine.R.string.orpheon_install
-}
-
 /** The update card, in the app's own style (dark sheet, green pill), not a system dialog. */
 @Composable
 private fun UpdateDialog(
     title: String, subtitle: String, notes: String, status: String?, progress: Float?, button: String,
     onUpdate: () -> Unit, onLater: () -> Unit, footnote: String? = null,
 ) {
-    // Only the buttons close it: a touch outside must not (the back gesture still means "Later").
+    // A tap outside or back gesture dismisses it ("Not now") and it won't ask again.
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onLater,
-        properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
+        properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = true),
     ) {
         androidx.compose.foundation.layout.Column(
             horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,

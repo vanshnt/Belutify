@@ -14,9 +14,6 @@ import java.util.concurrent.TimeUnit
  * (set by the CI build; empty in local builds, which never check).
  * Automatic checks at most once an hour (launch/resume) and every 6 h while open. The release's
  * APK is downloaded and installed in the app ([AppUpdater]).
- *
- * The same answer also gives the newest release of Orpheon, the app that replaces Myspoti, for
- * this build's channel ([orpheon]): a new app, offered once Myspoti itself is up to date.
  */
 object UpdateChecker {
     /** [apkUrl]: the release's signed APK; blank when the release has none (then its page opens). */
@@ -39,7 +36,7 @@ object UpdateChecker {
     }
 
     private sealed interface Fetch {
-        data class Ok(val release: Release?, val orpheon: Release? = null) : Fetch
+        data class Ok(val release: Release?) : Fetch
         data class Err(val rateLimited: Boolean) : Fetch
     }
 
@@ -87,15 +84,11 @@ object UpdateChecker {
             is Fetch.Ok -> e.putLong("checked_at", now).putLong("tried_at", 0L)
                 .putString("version", result.release?.version).putString("url", result.release?.pageUrl)
                 .putString("notes", result.release?.notes).putString("apk", result.release?.apkUrl)
-                .putString("orpheon_version", result.orpheon?.version).putString("orpheon_url", result.orpheon?.pageUrl)
-                .putString("orpheon_notes", result.orpheon?.notes).putString("orpheon_apk", result.orpheon?.apkUrl)
         }
         e.apply()
     }
 
     private fun fetch(repo: String, force: Boolean): Fetch = try {
-        // Both channels read the list (stable builds used to follow "latest"): the repository also
-        // carries Orpheon's releases, and one request answers for Myspoti and Orpheon alike.
         val bust = if (force) "&_=${System.currentTimeMillis()}" else ""
         val url = "https://api.github.com/repos/$repo/releases?per_page=30$bust"
         val request = Request.Builder().url(url).header("Accept", "application/vnd.github+json")
@@ -103,77 +96,19 @@ object UpdateChecker {
         http.newCall(request).execute().use { r ->
             if (!r.isSuccessful) return@use Fetch.Err(r.code == 429 || (r.code == 403 && r.header("x-ratelimit-remaining") == "0"))
             val list = org.json.JSONArray(r.body.string()).let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
-            Fetch.Ok(newest(list), newestOrpheon(list))
+            Fetch.Ok(newest(list))
         }
     } catch (e: Exception) { Fetch.Err(false) }
 
     /**
-     * The newest Myspoti release of this build's channel in [releases] (GitHub's list). Betas and
+     * The newest release of this build's channel in [releases] (GitHub's list). Betas and
      * releases are two apps (different package names, one cannot update the other): each one is
-     * offered its own channel only. Orpheon's releases (1.x, below Myspoti's numbers today) are
-     * never a Myspoti update, whatever their number.
+     * offered its own channel only.
      */
     internal fun newest(releases: List<JSONObject>, beta: Boolean = isBeta, abis: List<String> = deviceAbis): Release? =
-        releases.filter { !it.optBoolean("draft") && it.optBoolean("prerelease") == beta && !isOrpheon(it) }
+        releases.filter { !it.optBoolean("draft") && it.optBoolean("prerelease") == beta }
             .map { Release(it.getString("tag_name").removePrefix("v"), it.getString("html_url"), cleanNotes(it.optString("body")), apkAsset(it, beta, abis)) }
             .reduceOrNull { best, next -> if (isNewer(next.version, best.version)) next else best }
-
-    /** Orpheon's package names: the betas and the releases are two apps, as Myspoti's. */
-    const val ORPHEON_PACKAGE = "app.orpheon"
-    const val ORPHEON_BETA_PACKAGE = "app.orpheon.beta"
-
-    /** The Orpheon app offered to this build: the beta to a Myspoti beta, the release to a release. */
-    fun orpheonPackage(beta: Boolean = isBeta): String = if (beta) ORPHEON_BETA_PACKAGE else ORPHEON_PACKAGE
-
-    /** "Later" on the Orpheon window: the automatic check offers it again a day later at the soonest. */
-    const val ORPHEON_LATER_MS = 24 * 3_600_000L
-
-    /** A release of Orpheon, not of Myspoti: it carries an Orpheon APK (its tag, 1.x, says nothing). */
-    internal fun isOrpheon(release: JSONObject): Boolean {
-        val assets = release.optJSONArray("assets") ?: return false
-        return (0 until assets.length()).any { i ->
-            assets.getJSONObject(i).optString("name").let { it.startsWith("Orpheon-") && it.endsWith(".apk") }
-        }
-    }
-
-    /**
-     * The newest Orpheon release for this build's channel and this phone in [releases]: a Myspoti
-     * beta takes a pre-release carrying `Orpheon-Beta-<version>-<ARMv8|ARMv7>.apk`, a Myspoti
-     * release a release carrying `Orpheon-<version>-<ABI>.apk`. None of those (no Orpheon release
-     * yet on this channel, or none for this phone's ABIs): nothing is offered.
-     */
-    internal fun newestOrpheon(releases: List<JSONObject>, beta: Boolean = isBeta, abis: List<String> = deviceAbis): Release? {
-        fun newestOf(pre: Boolean) = releases.filter { !it.optBoolean("draft") && it.optBoolean("prerelease") == pre }
-            .map { Release(it.getString("tag_name").removePrefix("v"), it.getString("html_url"), cleanNotes(it.optString("body")), orpheonApk(it, pre, abis)) }
-            .filter { it.apkUrl.isNotEmpty() }
-            .reduceOrNull { best, next -> if (isNewer(next.version, best.version)) next else best }
-        // A stable Myspoti is offered Orpheon's beta while Orpheon has no release yet.
-        return newestOf(beta) ?: if (!beta) newestOf(true) else null
-    }
-
-    /** The package of the Orpheon [offer]: its beta app for a beta version, else Orpheon. */
-    fun orpheonPackageOf(offer: Release): String = orpheonPackage(beta = offer.version.contains("-beta"))
-
-    /** The release's Orpheon APK for this channel and the first of [abis] it carries one for, or "". */
-    internal fun orpheonApk(release: JSONObject, beta: Boolean = isBeta, abis: List<String> = deviceAbis): String {
-        val assets = release.optJSONArray("assets") ?: return ""
-        val named = "${if (beta) "Orpheon-Beta" else "Orpheon"}-${release.optString("tag_name").removePrefix("v")}"
-        val byName = (0 until assets.length()).map { assets.getJSONObject(it) }.associateBy { it.optString("name") }
-        return abis.filter { it in RELEASE_ABIS }.map { "$named-${RELEASE_ABIS.getValue(it)}.apk" }
-            .firstNotNullOfOrNull { byName[it] }?.optString("browser_download_url").orEmpty()
-    }
-
-    /**
-     * The Orpheon release to offer, from the last check (no request). The automatic check
-     * ([manual] false) stays quiet while a Myspoti update waits (it comes first, one window at a
-     * time) and for [ORPHEON_LATER_MS] after "Later"; Settings > About ([manual]) always has it.
-     */
-    fun orpheon(context: Context, manual: Boolean = false, now: Long = System.currentTimeMillis()): Release? = null
-
-    /** "Later" on the Orpheon window. */
-    fun orpheonLater(context: Context, now: Long = System.currentTimeMillis()) {
-        context.getSharedPreferences("updates", Context.MODE_PRIVATE).edit().putLong("orpheon_later_at", now).apply()
-    }
 
     /** The newer release last seen, dismissed or not (no request): what Settings > About shows. */
     fun known(context: Context): Release? =
@@ -192,23 +127,32 @@ object UpdateChecker {
 
     /**
      * The release's APK download link for this app's channel and this phone. A release carries
-     * `Myspoti-<version>-ARMv8.apk`, `-ARMv7.apk`, `-universal.apk` and `-TV.apk` (betas:
-     * `Myspoti-Beta-<version>-...`), and the first of [abis] (the phone's, most preferred first)
-     * that has one wins, so a 64-bit phone that also runs armeabi-v7a takes ARMv8. The names of
-     * 2.3.x and before come next (older releases): `myspoti-<beta|stable>-<version>-<abi>.apk`, then one APK without an ABI, `myspoti-<beta|stable>-<version>.apk`
-     * or `myspoti-<version>.apk`. Only this channel's APK: a release carrying both must not hand a
-     * phone the other channel's build (a different package, it could not update this one), and a
-     * name that matches none (or no APK for this phone's ABIs) gives no link.
+     * `Belutify-<version>-ARMv8.apk`, `-ARMv7.apk`, `-universal.apk` and `-TV.apk` (betas:
+     * `Belutify-Beta-...`), and the first of [abis] (the phone's, most preferred first)
+     * that has one wins, so a 64-bit phone that also runs armeabi-v7a takes ARMv8.
+     * Legacy Myspoti releases (`Myspoti-...`, `myspoti-...`) are also supported as fallback.
      */
     internal fun apkAsset(release: JSONObject, beta: Boolean = isBeta, abis: List<String> = deviceAbis): String {
         val assets = release.optJSONArray("assets") ?: return ""
         val version = release.optString("tag_name").removePrefix("v")
-        val named = "${if (beta) "Myspoti-Beta" else "Myspoti"}-$version"
-        val channel = "myspoti-${if (beta) "beta" else "stable"}-$version"
+        val namedBelutify = "${if (beta) "Belutify-Beta" else "Belutify"}-$version"
+        val namedMyspoti = "${if (beta) "Myspoti-Beta" else "Myspoti"}-$version"
+        val channelBelutify = "belutify-${if (beta) "beta" else "stable"}-$version"
+        val channelMyspoti = "myspoti-${if (beta) "beta" else "stable"}-$version"
         val byName = (0 until assets.length()).map { assets.getJSONObject(it) }.associateBy { it.optString("name") }
         val ours = abis.filter { it in RELEASE_ABIS }
-        val want = ours.map { "$named-${RELEASE_ABIS.getValue(it)}.apk" } + ours.map { "$channel-$it.apk" } +
-            listOf("$channel.apk", "myspoti-$version.apk")
+        val want = ours.map { "$namedBelutify-${RELEASE_ABIS.getValue(it)}.apk" } +
+            ours.map { "$namedMyspoti-${RELEASE_ABIS.getValue(it)}.apk" } +
+            ours.map { "$channelBelutify-$it.apk" } +
+            ours.map { "$channelMyspoti-$it.apk" } +
+            listOf(
+                "$channelBelutify.apk",
+                "$channelMyspoti.apk",
+                "belutify-$version.apk",
+                "myspoti-$version.apk",
+                "$namedBelutify-universal.apk",
+                "$namedMyspoti-universal.apk",
+            )
         return want.firstNotNullOfOrNull { byName[it] }?.optString("browser_download_url").orEmpty()
     }
 

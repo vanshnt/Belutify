@@ -189,7 +189,6 @@ internal fun TvHomeShelves(greeting: String, feedSections: List<HomeSection>, on
                 }
             }
         }
-        item(key = "support") { TvSupport() }
     }
     LaunchedEffect(sections.isNotEmpty()) { if (sections.isNotEmpty()) runCatching { delay(80); first.requestFocus() } }
 }

@@ -65,7 +65,11 @@ object RadioFavoritesStore {
             change()
             val f = file ?: return
             val tmp = File(f.parentFile, f.name + ".tmp")
-            runCatching { tmp.writeText(write()); tmp.renameTo(f) }
+            runCatching {
+                tmp.writeText(write())
+                if (f.exists()) f.delete()
+                tmp.renameTo(f)
+            }
         }
     }
 

@@ -89,5 +89,19 @@ class UpdateCheckerTest {
             {"name":"Myspoti-Beta-2.4.0-beta.2-ARMv8.apk","browser_download_url":"https://x/b8.apk"}]}""")
         assertEquals("https://x/b8.apk", UpdateChecker.apkAsset(b, beta = true, abis = listOf("arm64-v8a")))
         assertEquals("", UpdateChecker.apkAsset(b, beta = false, abis = listOf("arm64-v8a")))
+
+        val belutifyRelease = org.json.JSONObject("""{"tag_name":"v1.0.2","assets":[
+            {"name":"Belutify-1.0.2-TV.apk","browser_download_url":"https://x/belutify-tv.apk"},
+            {"name":"Belutify-1.0.2-universal.apk","browser_download_url":"https://x/belutify-universal.apk"},
+            {"name":"Belutify-1.0.2-ARMv7.apk","browser_download_url":"https://x/belutify-v7.apk"},
+            {"name":"Belutify-1.0.2-ARMv8.apk","browser_download_url":"https://x/belutify-v8.apk"}]}""")
+        assertEquals("https://x/belutify-v8.apk", UpdateChecker.apkAsset(belutifyRelease, beta = false, abis = listOf("arm64-v8a", "armeabi-v7a", "armeabi")))
+        assertEquals("https://x/belutify-v7.apk", UpdateChecker.apkAsset(belutifyRelease, beta = false, abis = listOf("armeabi-v7a", "armeabi")))
+        assertEquals("", UpdateChecker.apkAsset(belutifyRelease, beta = true, abis = listOf("arm64-v8a")))
+
+        val belutifyBeta = org.json.JSONObject("""{"tag_name":"v1.0.3-beta.1","assets":[
+            {"name":"Belutify-Beta-1.0.3-beta.1-ARMv8.apk","browser_download_url":"https://x/belutify-beta-v8.apk"}]}""")
+        assertEquals("https://x/belutify-beta-v8.apk", UpdateChecker.apkAsset(belutifyBeta, beta = true, abis = listOf("arm64-v8a")))
+        assertEquals("", UpdateChecker.apkAsset(belutifyBeta, beta = false, abis = listOf("arm64-v8a")))
     }
 }

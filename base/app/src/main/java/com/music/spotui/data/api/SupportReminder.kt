@@ -103,11 +103,7 @@ object SupportReminder {
         icon = Accent.entries.firstOrNull { it.key == p.getString("icon", "green") } ?: Accent.GREEN
     }
 
-    fun isDue(context: Context, now: Long = System.currentTimeMillis()): Boolean {
-        val p = prefs(context)
-        val firstSeen = p.getLong("first_seen", 0L).takeIf { it > 0 } ?: now.also { p.edit().putLong("first_seen", it).apply() }
-        return now >= nextAt(firstSeen, p.getLong("last_shown", 0L), level, p.getLong("supported_at", 0L))
-    }
+    fun isDue(context: Context, now: Long = System.currentTimeMillis()): Boolean = false
 
     /** The reminder was answered (Ko-fi opened or "no thanks"). */
     fun shown(context: Context) = prefs(context).edit().putLong("last_shown", System.currentTimeMillis()).apply()
@@ -147,11 +143,7 @@ object SupportReminder {
 
     private fun aliasOf(a: Accent) = "app.myspoti.engine.ui.Launcher" + a.key.replaceFirstChar { it.uppercase() }
 
-    fun open(context: Context) {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }
+    fun open(context: Context) {}
 
-    fun openSponsors(context: Context) {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SPONSORS_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }
+    fun openSponsors(context: Context) {}
 }

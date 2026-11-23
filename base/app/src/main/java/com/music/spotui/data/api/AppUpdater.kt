@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit
  * Downloads a release's APK and installs it over this app with Android's package
  * installer: the system asks the user to confirm, nothing opens in a browser.
  * The APK is signed with the same key as the installed app, or Android refuses it.
- * The same way installs Orpheon, another app (its own package, next to this one).
  */
 object AppUpdater {
     sealed interface State {
@@ -30,7 +29,7 @@ object AppUpdater {
         data class Downloading(val progress: Float) : State
         /** Handed to the system installer, waiting for the user's confirmation. */
         data object Installing : State
-        /** Android needs "Install unknown apps" allowed for Myspoti first. */
+        /** Android needs "Install unknown apps" allowed for Belutify first. */
         data object NeedsPermission : State
         data class Failed(val message: String) : State
     }
@@ -46,7 +45,7 @@ object AppUpdater {
     /** Android lets this app install packages (the "Install unknown apps" switch). */
     fun canInstall(context: Context): Boolean = context.packageManager.canRequestPackageInstalls()
 
-    /** The system page with Myspoti's "Install unknown apps" switch. */
+    /** The system page with Belutify's "Install unknown apps" switch. */
     fun openInstallSettings(context: Context) {
         context.startActivity(
             Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
@@ -56,8 +55,7 @@ object AppUpdater {
 
     /**
      * Downloads [release]'s APK, then starts the install. Updates [state] as it goes.
-     * [packageName]: the app the APK must be, this one by default (an update); Orpheon's package
-     * installs it as a new app, and Android refuses an APK of any other package.
+     * [packageName]: the app the APK must be, this one by default (an update).
      */
     suspend fun update(context: Context, release: UpdateChecker.Release, packageName: String = context.packageName) {
         val app = context.applicationContext
@@ -78,7 +76,7 @@ object AppUpdater {
 
     fun reset() { _state.value = State.Idle }
 
-    /** [packageName] is installed (Orpheon's packages are declared in the manifest's queries). */
+    /** [packageName] is installed. */
     fun isInstalled(context: Context, packageName: String): Boolean = try {
         context.packageManager.getPackageInfo(packageName, 0); true
     } catch (e: android.content.pm.PackageManager.NameNotFoundException) { false }
@@ -166,8 +164,7 @@ object AppUpdater {
                         else intent.getParcelableExtra(Intent.EXTRA_INTENT)
                     confirm?.let { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 }
-                // On success this process is replaced by the new version (Orpheon: the window
-                // stays, and offers to open it).
+                // On success this process is replaced by the new version.
                 PackageInstaller.STATUS_SUCCESS -> _state.value = State.Idle
                 PackageInstaller.STATUS_FAILURE_ABORTED -> _state.value = State.Idle
                 else -> _state.value = State.Failed(

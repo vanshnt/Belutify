@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.3
+
+- Fixed in-app update checker to target `vanshnt/Belutify` GitHub releases and detect `Belutify-*.apk` assets
+- Fixed direct in-app APK download and seamless installation flow
+- Completely purged legacy Orpheon migration prompts, queries, and dead code
+- Fixed extension compatibility: community extensions (Lossless FLAC, Culture, Lyrics Romanizer, etc.) now activate properly
+- Rebranded remaining user-facing text, diagnostic reports, and logs to Belutify across all supported locales
+- Based on Myspoti (originally by kota-zo and upstream open-source contributors)
+
 ## 1.0.2
 
 - **Belutify Initial Revival Release** maintained by **vanshnt**

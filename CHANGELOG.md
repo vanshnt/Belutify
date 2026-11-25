@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.5
+
+- Fixed immediate startup crash in the isolated `:gecko` login browser (`GeckoLoginActivity`) caused by sharing the main-process app theme (`SpotuiTheme` / `DynamicColorPref`) before `Graph.app` was initialized
+- Prevented duplicate `GeckoLoginActivity` launches when session expiry and logout listeners trigger together
+
 ## 1.0.4
 
 - Added isolated GeckoView (Firefox engine) login browser for reliable Spotify sign-in & adding multiple accounts without Android WebView's `X-Requested-With` / HTTP 400 error

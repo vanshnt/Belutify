@@ -107,9 +107,11 @@ class MainActivity : AppCompatActivity() {
     private val tv by lazy { com.music.spotui.ui.tv.Tv.isTv(this) }
 
     private var launchedGeckoDirectly = false
+    private var geckoInFlight = false
     private val geckoLoginLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        geckoInFlight = false
         val direct = launchedGeckoDirectly
         launchedGeckoDirectly = false
         if (result.resultCode == android.app.Activity.RESULT_OK) {
@@ -135,6 +137,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun launchGeckoLogin(fromHelp: Boolean = false) {
+        if (geckoInFlight) return
+        geckoInFlight = true
         launchedGeckoDirectly = !fromHelp
         geckoLoginLauncher.launch(Intent(this, com.music.spotui.ui.screens.GeckoLoginActivity::class.java))
     }

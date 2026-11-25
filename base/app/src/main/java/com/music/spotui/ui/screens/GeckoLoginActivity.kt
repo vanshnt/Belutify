@@ -27,9 +27,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,19 +39,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
-import com.music.spotui.ui.theme.AppAccent
-import com.music.spotui.ui.theme.AppMuted
-import com.music.spotui.ui.theme.AppSans
-import com.music.spotui.ui.theme.AppText
-import com.music.spotui.ui.theme.SpotuiTheme
-import com.music.spotui.ui.theme.tone
 import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
@@ -79,6 +77,13 @@ class GeckoLoginActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        window.isNavigationBarContrastEnforced = false
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
 
         val rt = GeckoRuntime.getDefault(applicationContext)
         runtime = rt
@@ -99,12 +104,12 @@ class GeckoLoginActivity : ComponentActivity() {
         })
 
         setContent {
-            SpotuiTheme {
+            GeckoLoginTheme {
                 var manualOpen by remember { mutableStateOf(false) }
                 Column(
                     Modifier
                         .fillMaxSize()
-                        .background(tone(0xFF121212))
+                        .background(GeckoBg)
                         .statusBarsPadding()
                         .navigationBarsPadding()
                         .imePadding()
@@ -119,13 +124,13 @@ class GeckoLoginActivity : ComponentActivity() {
                             setResult(Activity.RESULT_CANCELED)
                             finish()
                         }) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Close", tint = AppText)
+                            Icon(Icons.Rounded.Close, contentDescription = "Close", tint = GeckoText)
                         }
                         Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
                             Text(
                                 "Sign in to Spotify",
-                                color = AppText,
-                                fontFamily = AppSans,
+                                color = GeckoText,
+                                fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 15.sp,
                                 maxLines = 1,
@@ -135,13 +140,13 @@ class GeckoLoginActivity : ComponentActivity() {
                                 Icon(
                                     Icons.Rounded.Lock,
                                     contentDescription = null,
-                                    tint = AppMuted,
+                                    tint = GeckoMuted,
                                     modifier = Modifier.size(12.dp).padding(end = 3.dp),
                                 )
                                 Text(
                                     currentHost.ifBlank { "accounts.spotify.com" },
-                                    color = AppMuted,
-                                    fontFamily = AppSans,
+                                    color = GeckoMuted,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 12.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -149,10 +154,10 @@ class GeckoLoginActivity : ComponentActivity() {
                             }
                         }
                         IconButton(onClick = { manualOpen = true }) {
-                            Icon(Icons.Rounded.Key, contentDescription = "Paste sp_dc", tint = AppMuted)
+                            Icon(Icons.Rounded.Key, contentDescription = "Paste sp_dc", tint = GeckoMuted)
                         }
                         IconButton(onClick = { session?.reload() }) {
-                            Icon(Icons.Rounded.Refresh, contentDescription = "Reload", tint = AppText)
+                            Icon(Icons.Rounded.Refresh, contentDescription = "Reload", tint = GeckoText)
                         }
                     }
 
@@ -160,8 +165,8 @@ class GeckoLoginActivity : ComponentActivity() {
                         LinearProgressIndicator(
                             progress = { loadProgress / 100f },
                             modifier = Modifier.fillMaxWidth().height(2.dp),
-                            color = AppAccent,
-                            trackColor = tone(0xFF121212),
+                            color = GeckoAccent,
+                            trackColor = GeckoBg,
                         )
                     }
 
@@ -313,6 +318,27 @@ class GeckoLoginActivity : ComponentActivity() {
     }
 }
 
+private val GeckoBg = Color(0xFF121212)
+private val GeckoSurface = Color(0xFF242424)
+private val GeckoAccent = Color(0xFF1DB954)
+private val GeckoText = Color.White
+private val GeckoMuted = Color(0xFFB3B3B3)
+
+@androidx.compose.runtime.Composable
+private fun GeckoLoginTheme(content: @androidx.compose.runtime.Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = GeckoAccent,
+            onPrimary = Color.Black,
+            background = GeckoBg,
+            onBackground = GeckoText,
+            surface = GeckoSurface,
+            onSurface = GeckoText,
+        ),
+        content = content,
+    )
+}
+
 @androidx.compose.runtime.Composable
 private fun ManualSpDcDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
     val ctx = LocalContext.current
@@ -320,13 +346,13 @@ private fun ManualSpDcDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) 
     var bad by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = tone(0xFF242424),
-        title = { Text("Paste sp_dc cookie", color = AppText) },
+        containerColor = GeckoSurface,
+        title = { Text("Paste sp_dc cookie", color = GeckoText) },
         text = {
             Column {
                 Text(
                     "Optional: paste an sp_dc cookie directly if you signed in on another browser.",
-                    color = AppText.copy(alpha = 0.7f),
+                    color = GeckoText.copy(alpha = 0.7f),
                     fontSize = 13.sp,
                 )
                 OutlinedTextField(
@@ -342,8 +368,8 @@ private fun ManualSpDcDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) 
                     cm?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(ctx)?.toString()?.let {
                         value = it; bad = false
                     }
-                }) { Text("Paste from clipboard", color = AppText) }
-                if (bad) Text("That does not look like an sp_dc cookie.", color = androidx.compose.ui.graphics.Color(0xFFFF6B6B))
+                }) { Text("Paste from clipboard", color = GeckoText) }
+                if (bad) Text("That does not look like an sp_dc cookie.", color = Color(0xFFFF6B6B))
             }
         },
         confirmButton = {
@@ -354,8 +380,8 @@ private fun ManualSpDcDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) 
                 } else {
                     bad = true
                 }
-            }) { Text("Sign in", color = AppAccent) }
+            }) { Text("Sign in", color = GeckoAccent) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = AppText) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = GeckoText) } },
     )
 }

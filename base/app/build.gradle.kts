@@ -35,7 +35,7 @@ android {
     // signed with the first key, as "Myspoti Beta"; releases are "app.myspoti.stable",
     // signed with their own key, as "Myspoti".
     // Local builds (no version given) are on the beta side, like the phone test builds.
-    val version = (findProperty("appVersionName") as String?) ?: "1.0.4"
+    val version = (findProperty("appVersionName") as String?) ?: "1.0.5"
     // "-beta" as in UpdateChecker.isBeta, one predicate for the app id, the label and the log stripping.
     val beta = findProperty("appVersionName") == null || version.contains("-beta")
     defaultConfig {
@@ -46,7 +46,7 @@ android {
         minSdk = 29
         targetSdk = 36
         // CI release builds pass the tag's version (-PappVersionName / -PappVersionCode).
-        versionCode = (findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 203
+        versionCode = (findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 204
         versionName = version
         // GitHub "owner/repo" whose releases the app checks for updates; empty = off
         // (local builds). CI sets it to the repository it builds.
@@ -231,7 +231,7 @@ dependencies {
  */
 tasks.register("collectApks") {
     mustRunAfter("assembleRelease")
-    val version = (findProperty("appVersionName") as String?) ?: "1.0.4"
+    val version = (findProperty("appVersionName") as String?) ?: "1.0.5"
     val beta = findProperty("appVersionName") == null || version.contains("-beta")
     val app = when { findProperty("overDev") != null -> "Belutify-dev"; else -> "Belutify" }
     // Copies: the configuration cache cannot keep a reference to the script's own values.

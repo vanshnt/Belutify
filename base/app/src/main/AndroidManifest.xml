@@ -151,6 +151,7 @@
         <activity
             android:name="com.music.spotui.ui.screens.GeckoLoginActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:process=":gecko"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation|density"
             android:windowSoftInputMode="adjustResize"

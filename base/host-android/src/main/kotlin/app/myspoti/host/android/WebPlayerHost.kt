@@ -324,7 +324,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val url = request.url.toString()
-                if (AdBlock.isBlocked(url)) {
+                if (!signInIdentity && !isLoginPage(_url.value) && AdBlock.isBlocked(url)) {
                     Logbook.log("blocked ad request ${Logbook.noQuery(url).take(120)}")
                     // Refused like a blocked request: the player reports a failed ad and moves on.
                     return WebResourceResponse("text/plain", "utf-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
@@ -463,9 +463,9 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                     view.loadUrl(request.url.toString())
                     return true
                 }
-                // Stay on Spotify's own pages (player, login, consent); open nothing else.
+                // Stay on Spotify's own pages (player, login, consent) and sign-in/reCAPTCHA challenge hosts.
                 // Exact or subdomain match: "evilspotify.com" must not count as Spotify.
-                val allowed = listOf("spotify.com", "spotify.net", "scdn.co", "google.com", "facebook.com", "apple.com")
+                val allowed = listOf("spotify.com", "spotify.net", "scdn.co", "google.com", "gstatic.com", "googleapis.com", "recaptcha.net", "facebook.com", "fbcdn.net", "apple.com")
                     .any { host == it || host.endsWith(".$it") }
                 // And only over https: a plain http link to those hosts, or any other scheme, stays out.
                 // The page's own loads (loadUrl, about:blank) do not come through here.
@@ -701,7 +701,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         main.removeCallbacks(retryPlayerPage)
         main.removeCallbacks(loadTimeout)
         beginLoginLoad()
-        view.loadUrl(LOGIN_URL)
+        cleanSlate { view.loadUrl(LOGIN_URL) }
     }
 
     /** Signs out of Spotify in this WebView, then shows the login page. */

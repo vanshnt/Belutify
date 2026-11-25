@@ -106,6 +106,39 @@ class MainActivity : AppCompatActivity() {
     /** Android TV: the short TV version of the app (see [com.music.spotui.ui.tv.TvApp]). */
     private val tv by lazy { com.music.spotui.ui.tv.Tv.isTv(this) }
 
+    private var launchedGeckoDirectly = false
+    private val geckoLoginLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val direct = launchedGeckoDirectly
+        launchedGeckoDirectly = false
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val spDc = result.data?.getStringExtra(com.music.spotui.ui.screens.GeckoLoginActivity.EXTRA_SP_DC)
+            if (!spDc.isNullOrBlank()) {
+                Logbook.log("gecko browser sign-in: importing session cookie")
+                showingLogin = false
+                connecting = true
+                loginProblem = false
+                MyspotiRuntime.host.attach(root, visible = false)
+                MyspotiRuntime.host.veil(true)
+                MyspotiRuntime.host.importSession(spDc)
+                return@registerForActivityResult
+            }
+        }
+        if (direct && com.music.spotui.di.SessionActions.signedOut.value &&
+            com.music.spotui.di.SessionActions.backToPreviousAccount(this@MainActivity)
+        ) {
+            MyspotiRuntime.host.accounts.list.value.current?.name?.let {
+                android.widget.Toast.makeText(this@MainActivity, getString(R.string.accounts_back_to, it), android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun launchGeckoLogin(fromHelp: Boolean = false) {
+        launchedGeckoDirectly = !fromHelp
+        geckoLoginLauncher.launch(Intent(this, com.music.spotui.ui.screens.GeckoLoginActivity::class.java))
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -383,8 +416,16 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    /** Spotify's login page, full screen, until the Web Player comes back signed in. */
+    /** Spotify's login page: uses the isolated GeckoView browser on phones, WebView on Android TV. */
     private fun showLogin() {
+        if (!tv) {
+            launchGeckoLogin(fromHelp = false)
+            return
+        }
+        showLoginWebView()
+    }
+
+    private fun showLoginWebView() {
         showingLogin = true
         MyspotiRuntime.host.attach(root, visible = true)
         MyspotiRuntime.host.openLogin()
@@ -458,8 +499,12 @@ class MainActivity : AppCompatActivity() {
             com.music.spotui.di.SessionActions.signedOut.collect { out ->
                 if (out && signedIn) {
                     signedIn = false
-                    showingLogin = true
-                    MyspotiRuntime.host.attach(root, visible = true)
+                    if (tv) {
+                        showingLogin = true
+                        MyspotiRuntime.host.attach(root, visible = true)
+                    } else {
+                        launchGeckoLogin(fromHelp = false)
+                    }
                 }
             }
         }
@@ -619,7 +664,7 @@ class MainActivity : AppCompatActivity() {
                             SessionCheck.SIGNED_IN -> sessionConfirmed()
                             // The session is kept as it is: the next page load asks again.
                             SessionCheck.UNKNOWN -> Logbook.log("session check failed (${answer.exceptionOrNull()?.message}): session kept")
-                            SessionCheck.SIGNED_OUT -> if (signedIn) {
+                            SessionCheck.SIGNED_OUT -> if (signedIn || connecting) {
                                 // The pref said "signed in", the token says anonymous: only the token
                                 // counts. This is what left the app on its full UI (or on Spotify's
                                 // anonymous page) with nothing playable — reported after leaving the app
@@ -629,7 +674,7 @@ class MainActivity : AppCompatActivity() {
                                 signedIn = false
                                 connecting = false
                                 com.music.spotui.di.SessionActions.sessionLost()
-                                showLogin()
+                                showLoginWebView()
                             }
                         }
                     }

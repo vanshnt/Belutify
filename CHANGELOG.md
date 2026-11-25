@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.4
+
+- Added isolated GeckoView (Firefox engine) login browser for reliable Spotify sign-in & adding multiple accounts without Android WebView's `X-Requested-With` / HTTP 400 error
+- Automatically captures the signed-in session (`sp_dc`) via built-in browser extension and terminates the `:gecko` login process immediately afterward so zero browser RAM stays active during playback
+- Improved WebView fallback login: clears stale anonymous startup cookies before login, skips AdBlock during sign-in, and permits challenge/reCAPTCHA subframes
+- Updated Help dialog browser fallback instructions and diagnostic report branding (`Belutify diagnostic report`)
+- Raised in-app updater APK download ceiling (`400 MB`) for future larger builds
+
 ## 1.0.3
 
 - Fixed in-app update checker to target `vanshnt/Belutify` GitHub releases and detect `Belutify-*.apk` assets

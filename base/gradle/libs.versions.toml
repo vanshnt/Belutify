@@ -20,6 +20,7 @@ desugaring = "2.1.5"
 glance = "1.2.0"
 coroutines = "1.11.0"
 junit = "5.13.4"
+geckoview = "152.0.20260713164047"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -77,6 +78,9 @@ junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 
 # Desugaring
 desugaring = { module = "com.android.tools:desugar_jdk_libs_nio", version.ref = "desugaring" }
+
+# Browser login engine (isolated process)
+geckoview = { module = "org.mozilla.geckoview:geckoview", version.ref = "geckoview" }
 
 
 [plugins]

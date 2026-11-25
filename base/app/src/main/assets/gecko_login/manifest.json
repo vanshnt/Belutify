@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+  "name": "Belutify Login Helper",
+  "version": "1.0",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "login@belutify.app"
+    }
+  },
+  "permissions": [
+    "cookies",
+    "nativeMessaging",
+    "geckoViewAddons",
+    "https://*.spotify.com/*"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  }
+}

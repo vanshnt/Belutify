@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 class MyspotiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Isolated login browser (:gecko) must not boot WebView/playback in its own process.
+        if (getProcessName() != packageName) return
         // A crash or a freeze of the last run, back in this run's diagnostic report.
         app.myspoti.host.android.LastExit.install(this)
         app.myspoti.power.EnergySettings.init(this)

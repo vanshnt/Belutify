@@ -88,7 +88,7 @@ object AppUpdater {
     }
 
     /** No release of this app comes near it; a bigger answer is not an APK of ours. */
-    private const val MAX_APK_BYTES = 200L * 1024 * 1024
+    private const val MAX_APK_BYTES = 400L * 1024 * 1024
 
     private suspend fun download(release: UpdateChecker.Release, file: File): Unit = withContext(Dispatchers.IO) {
         val dir = file.parentFile!!.apply { mkdirs() }

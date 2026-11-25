@@ -95,7 +95,16 @@ fun LoginHelpDialog(onClose: () -> Unit) {
                     Text(stringResource(R.string.login_paste_link), color = AppAccent)
                 }
                 Spacer(Modifier.height(4.dp))
-                TextButton(onClick = { browser = true }) { Text("Sign in with browser", color = AppAccent) }
+                TextButton(onClick = {
+                    val act = ctx as? app.myspoti.MainActivity
+                    if (act != null) {
+                        onClose()
+                        act.launchGeckoLogin(fromHelp = true)
+                    } else {
+                        browser = true
+                    }
+                }) { Text("Sign in with built-in Firefox browser", color = AppAccent) }
+                TextButton(onClick = { browser = true }) { Text("Paste sp_dc cookie manually", color = AppText) }
             }
         },
         confirmButton = {
@@ -136,7 +145,9 @@ fun BrowserSignInDialog(onClose: () -> Unit) {
         text = {
             Column {
                 Text(
-                    "1. Open Chrome and sign in to Spotify.\n2. Copy the sp_dc cookie (DevTools > Application > Cookies > open.spotify.com).\n3. Paste it below.",
+                    "Android Chrome has no DevTools to view HttpOnly cookies.\n\n" +
+                        "• On a PC/Mac: open Chrome/Edge, sign in at open.spotify.com, open DevTools (F12) → Application → Cookies → https://open.spotify.com, and copy the sp_dc value.\n" +
+                        "• On Android: use a browser with Cookie-Editor (e.g. Firefox + Cookie-Editor or Edge/Kiwi), sign in at open.spotify.com, and copy sp_dc.",
                     color = AppText.copy(alpha = 0.7f),
                 )
                 Spacer(Modifier.height(8.dp))

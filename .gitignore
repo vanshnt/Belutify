@@ -7,6 +7,9 @@ build/
 *.log
 dist/
 local.properties
+*.jks
+*.keystore
+base/keystore/
 # device captures (logs can contain session data)
 tools/captures/
 base/tools/captures/
